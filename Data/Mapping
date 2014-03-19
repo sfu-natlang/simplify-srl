@@ -1,0 +1,16 @@
+Sentence_normalization	0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+Passive	24 25 26 27 28
+Misc_Collapsing/Rewriting	29 30 31 64 82 85 86 87 116 122 123 125 126 127 138 139 144 145 146 147
+Conjunctions	32 33 34 35 36 37 38 39
+Verb_Collapsing/Rewriting	40 41 42 43 44 45 46 47 48 49 52 61 83 84
+Verb_Raising/Control	50 51 63 88 89 101 102 103 107 108 109 110 111 112 113 114 128
+Verb_Raising/Control_through_ADJP/ADVP	72 73 74 75 76 137
+Verb_Raising/Control_through_Noun	97 98 99 100 104 105 106
+Inverted_Sentences	53 54 55 56 57 58 59
+Sentence_Extractors	60 62 115 124
+Questions	65 66 67 68 69 70 71
+Nouns_modified_by_verbs/clauses	77 78 79 80 81 140 148 149
+Possessive	90 91 92 93 94 95 96
+Verbs_acting_as_PPs_or_NPs	117 118 119 120 121 152 153
+Make_rewrites	129 130 131 132 133 134 135 136
+FLOATING_rules	141 142 143 150 151

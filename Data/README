@@ -1,0 +1,49 @@
+This is a brief description of the rule format.
+
+Empty lines and lines that being with "//" are ignored. 
+
+All other lines are rules.  A rule has 3 sections, delimited by colons.  The first part is the tree regular expression.  The second is the set of transformation operations, plus possibly features of the rule (e.g., which was the helper verb that was removed).  The third is just a plain text description of the purpose of the rule.  The third section may be empty.
+
+The first section is delimited by semicolons, and consists of a set of constraints on the matched subtree.  We need to first define some notation:
+# is a variable which corresponds to a numbered node.  We number the first node in the rule #1, the second #2, etc.
+POS refers to a category tag, which may be either a terminal or nonterminal tag (e.g., VBD and VP, respectively).
+WORD refers to an arbitrary string literal.
+
+So, for example, the here is a basic tree constraint:
+category(#1,POS)
+This constraint means that the node #1 has tag POS.
+
+Another simple constring is the child constraint:
+child(#1,#2)	Node #2 is a child of node #1.
+
+Putting these two types together, consider the following set of constraints:
+category(0,S);child(0,1);category(1,VP)
+This will match exactly when we have a node with tag S, which has a child which has tag VP.
+
+Here is a list of additional constraints:
+is_helper_verb(#1)	Node #1 was labeled by a preprocessing step as being a helper verb (helper verbs can only be one of "be", "have", "do", and rarely "get" -- our preprocessing step is simply to assign any of these which have a sister node which is a VP to be a helper verb)
+is_main_verb(#1)	Is a verb node that is not a helper verb
+child_order(#1,#2,#3)	Nodes #2 and #3 are children of node #1 and appear with #3 combing after #2 in the list of children nodes of #1
+child_num(#1,#2,EXP)	Node #2 is in a particular position in #1's list of children defined by EXP.  The most simple is that EXP is a constant number, such as 0.  In this case, Node #2 would have to be the 1st child of Node #1.  EXP could also be an inequality, such as >=2, in which case node #2 has to be in at least the third position in Node #1's list of children.
+head_word(#1,WORD)	Node #1 has head word equal to WORD.
+
+
+The second part of the rule defines the transformation operations, plus possible features of the rule application.  Here is a list of operations:
+
+set_category(#1,CATEGORY)	Sets the tag of node #1 to be CATEGORY
+set_head_word(#1,WORD)	Sets the head word of node #1 to WORD
+add_child_end(#1,#2)	Adds node #2 as the final child of #1
+add_child_before(#1,#2,#3)	Adds node #3 as a child of node #1 right before node #2
+remove_child(#1,#2)	Removes node #2 from the children of #1
+replace_child(#1,#2,#3)	#2 must be a child of #1; replace #2 with #3 in the list of #1's children
+concatenate(#1,#2)	Adds all children of #2 as children of #1, at the end and in order
+replace_child_with_contents(#1,#2,#3)	#2 must be a child of #1; remove #2 from the children of #1 and put in its place all children of #3 (in order)
+transfer_children_after(#1,#2,#3)	#2 must be a child of #1; removes all children of #1 after #2 and puts them as children of #3 (at the end of #3's children)
+copy_original_from(#1,#2)	Used to keep track of which node from the original parse is associated with various nodes in the transformation tree.  Initially, we start with one transformation node for each node in the original parse tree.  This rule simply sets the original node of #2 to be the same as that of #1.
+
+Also, the second part of the rule may extract features of the rule.  
+word_feature(#1)	Extracts the head word of #1 as a feature
+
+
+
+

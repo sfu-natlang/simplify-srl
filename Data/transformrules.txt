@@ -1,0 +1,331 @@
+//This version of the rules is the first to try to handle missing subjects correctly.  The main idea is that the subject of the sentence should be the ONLY thing before the verb, and that all other elements should be moved after the verb.  We'll see how this holds up on actual data.  We introduce two new tags: S-Comp (which indicates a completed sentence with a subject and nothing else before the verb), and S-Empty (a sentence without a subject, so nothing before the first VP).  One other characteristic of these rules is they are pretty strict on placement -- for example, there are a lot of uses of sibling_dist
+//This version changes the way the subject is handled somewhat.  There are now two stages.  In the first stage, "non-subject" modifiers can be moved (i.e., PPs but not NPs).  At any time, the sentence can be marked as S1.  Once this happens, only "possible subjects" can be moved.
+
+//First category of rules: ones that move non-subjects.  Note that we make no requirements about the sentence besides that is in state S
+//category(0,S);child(0,1);category(1,PP);child(1,2);category(2,S);child(0,3);child_num(0,3,>=2);category(3,VP);child(3,4);is_main_verb(4);child_order(0,1,3):add_child_end(3,1):Move preposition to end of VP -- This rule probably is reduntant with the next
+//Now without requiring a sentence inside
+category(0,S);child(0,1);category(1,PP);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move preposition to end of VP
+//Also with ADVPs
+category(0,S);child(0,1);category(1,ADVP);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_before(2,3,1):Move ADVP right before main verb
+//Also RBs (as far as I know, can only happen with not)
+category(0,S);child(0,1);category(1,RB);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_before(2,3,1):Move RB before verb
+//Also ADJPs (kind of ungrammatical, but it happens)
+category(0,S);child(0,1);category(1,ADJP);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_before(2,3,1):Move ADJP before verb
+//Also INTJs (basically just ADVPs)
+category(0,S);child(0,1);category(1,INTJ);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_before(2,3,1):Move ADJP before verb
+//Similar: remove leading CCs (yet, but)
+category(0,S);child(0,1);category(1,CC);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):remove_child(0,1):Remove leading CC
+//Similar: remove leading INs (for)
+category(0,S);child(0,1);category(1,IN);child(0,2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):remove_child(0,1):Remove leading IN
+//Remove DT modifying an S
+category(0,S);child(0,1);category(1,DT):remove_child(0,1):Just kill the DT
+//Remove CONJP modifying an S
+category(0,S);child(0,1);category(1,CONJP):remove_child(0,1):Just kill the CONJP
+
+//We've now gotten the non-subject modifiers, so we can set the sentence type to S1 (note that this can be done at any time, including before all the modifiers have actually been processed)
+category(0,S):set_category(0,S1):Advance the state
+
+//Now the rules that can move possible subjects.  The difference here is that you can no longer remove the last possible subject (I hope that it's the case that if there is one of these parts of speech before the verb, there actually is a subject -- I know it's true ALMOST all the time).
+//First type: beginning of sentence, at least two pre-subject modifiers
+// with S fragments at the beginning of the sentence
+category(0,S1);child(0,1);child_num(0,1,0);category(1,S);child(0,2);child_num(0,2,>=2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move S to end of VP
+//Also with SBARs, although I'm not sure if this should happen
+category(0,S1);child(0,1);child_num(0,1,0);category(1,SBAR);child(0,2);child_num(0,2,>=2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move S to end of VP
+//Also with FRAGs (most often for quotes)
+category(0,S1);child(0,1);child_num(0,1,0);category(1,FRAG);child(0,2);child_num(0,2,>=2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move S to end of VP
+//Also with NPs (Today Michael will...)
+category(0,S1);child(0,1);child_num(0,1,0);category(1,NP);child(0,2);child_num(0,2,>=2);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move NP to end of VP
+
+//Second type: move things immediately before the verb to the predicate.  Again, we require that this isn't the last thing left.
+//This rule for NPs (Michael today will ...)
+category(0,S1);child(0,1);category(1,NP);child(0,2);child_num(0,2,>=2);sibling_dist(0,1,2,1);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move NP right before the main VP to end of VP.
+//This rule for Ss (Michael today will ...)
+category(0,S1);child(0,1);category(1,S);child(0,2);child_num(0,2,>=2);sibling_dist(0,1,2,1);category(2,VP);child(2,3);is_main_verb(3);child_order(0,1,2):add_child_end(2,1):Move S right before the main VP to end of VP.
+
+//Now we have sufficient rules to isolate a single node before the VP.  I think chances are that there will always be something left, but to be safe I'll add special rules that take away the final pre-verb argument
+//we have done everything to isolate the subject.  We can now implement the type changing rules.  We're actually going to be conservative to avoid blow-up, only allowing S and NP and FRAG and SBAR as the subject 
+category(0,S1);child(0,1);child_num(0,1,0);category(1,NP);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3):set_category(0,S-Comp):Mark a sentence as complete with a NP as subject
+category(0,S1);child(0,1);child_num(0,1,0);category(1,S-Comp);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3):set_category(0,S-Comp):Mark a sentence as complete with S-Comp as subject
+category(0,S1);child(0,1);child_num(0,1,0);category(1,FRAG);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3):set_category(0,S-Comp):Mark a sentence as complete with FRAG as subject
+category(0,S1);child(0,1);child_num(0,1,0);category(1,SBAR);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3):set_category(0,S-Comp):Mark a sentence as complete with SBAR as subject
+category(0,S1);child(0,1);child_num(0,1,0);category(1,VP);child(1,2);is_main_verb(2):set_category(0,S-Empty):Mark a sentence as missing its subject
+
+//The last pair rule just takes an empty sentence and adds an empty subject, changing it to a complete sentence; and remove an empty subject, making it empty.  So, it's free to convert between the two
+category(0,S-Empty);child(0,1);child_num(0,1,0);category(1,VP):set_category(2,EMPTY_SUBJ);set_head_word(2,EMPTY);add_child_begin(0,2);set_category(0,S-Comp):Just add an empty to the beginning and change type.  Note that we ensure that the verb is first (i.e., no FLOATING nodes)
+category(0,S-Comp);child(0,1);child_num(0,1,0);category(1,EMPTY_SUBJ):set_category(0,S-Empty);remove_child(0,1):Just remove the empty subject and mark it as an empty sentence
+
+//Sort of same spirit: move any ADVP modifying the main verb after the main verb to right before the verb
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,ADVP);child_order(0,1,2):add_child_before(0,1,2):Move the ADVP right before the verb
+
+//Passive rules -- note that we need to change where the original link points (because the whole by phrase is labeled as the ARG).  We currently squish down the complicated verb phrase; the resulting sentence is NOT grammatical (this should be fixed in the future).  Note that we have to do squishing before it is typed, otherwise the argument moving doesn't work.
+//First rule: squish down the passive modifier
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,be);child(2,4);is_main_verb(4);category(4,VBN):remove_child(1,2);concatenate(1,2);set_category(3,PASSIVE_HELPER):be passive modifier
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,be);child(2,4);is_main_verb(4);category(4,VBD):remove_child(1,2);concatenate(1,2);set_category(3,PASSIVE_HELPER);set_category(4,VBN):This rule shouldn't happen, since it's not supposed to be possible to have "be took", but it might be possible (this shouldn't hurt anything though)
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,get);child(2,4);is_main_verb(4);category(4,VBN):remove_child(1,2);concatenate(1,2);set_category(3,PASSIVE_HELPER):get passive modifier
+//Note that here we do set the root, because doing stuff to a sentence after applying a passive rule is questionable
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);category(3,PASSIVE_HELPER);child(2,4);is_main_verb(4);category(4,VBN);child(2,5);category(5,PP);head_word(5,by);child(5,6);category(6,NP):set_root(0);replace_child(0,1,6);add_child_after(2,4,1);set_category(4,VBD);set_category(3,USED_HELPER);remove_child(2,5);copy_original_from(6,5):Basic passive rule with by-subj
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);category(3,PASSIVE_HELPER);child(2,4);is_main_verb(4);category(4,VBN):set_root(0);replace_child(0,1,5);set_category(5,EMPTY_SUBJ);set_head_word(5,EMPTY);add_child_after(2,4,1);set_category(4,VBD);set_category(3,USED_HELPER):Basic passive rule with no by-subj.  Note that it still stays a complete sentence since it does have a subject.
+
+//Simplify compound PP phrase
+child(0,1);category(1,PP);child(1,2);category(2,IN);child(1,3);category(3,PP):replace_child(0,1,3):Just move up the subordinate PP (note that we lose the other PP
+child(0,1);category(1,PP);child(1,2);category(2,RP);child(1,3);category(3,PP):replace_child(0,1,3):Same thing but with an RP
+//Almost the same: rewrite an ADVP such as "aside from" as just a PP
+child(0,1);category(1,ADVP);child(1,2);category(2,RB);child(1,3);category(3,PP):replace_child(0,1,3):Remove the extra RB
+
+//Simplify conjunctive phrases
+//child(0,1);category(1,VP);child(1,2);category(2,VP);child(1,3);category(3,CC):replace_child(0,1,2):Verb conjuctive phrase
+category(0,VP);child(0,1);category(1,Choice-VP);child(1,2);category(2,VP):replace_child_with_contents(0,1,2);copy_original_from(0,2);copy_head_word_from(0,2):New way of handling VP conjuncts
+child(0,1);category(1,VP);child(1,2);category(2,VP);child(1,3);category(3,CONJP):replace_child(0,1,2):Verb conjuctive phrase
+child(0,1);category(1,PP);child(1,2);category(2,PP);child(1,3);category(3,CC):replace_child(0,1,2):Prep conjuctive phrase
+child(0,1);category(1,ADJP);child(1,2);category(2,ADJP);child(1,3);category(3,CC):replace_child(0,1,2):ADJP conj
+child(0,1);category(1,ADVP);child(1,2);category(2,ADVP);child(1,3);category(3,CC):replace_child(0,1,2):ADVP conj
+child(0,1);category(1,S);child(1,2);category(2,S);child(1,3);category(3,CC):replace_child(0,1,2):Sentence conjuctive phrase
+child(0,1);category(1,NP);child(1,2);category(2,NP);child(1,3);category(3,CC):replace_child(0,1,2):Noun conjuctive phrase
+
+//Similar to conjunctive phrases -- an example is "release producer David Puttnam from his contract, then take he back ..."
+child(0,1);category(1,VP);child(1,2);category(2,VP);child(1,3);category(3,RB);head_word(3,then):replace_child(0,1,2):This rule might be a risky one? Shouldn't be since I made it only apply to then
+
+//Collapse complicated verb phrases -- note that we're keeping around the modifier.  We're simply squishing down the phrases together.  The goal here is to parse things top down so that we don't get a bunch of overlapping parses of the same basic thing. (e.g., have been included only really needs one analysis rather than 2).  Note that bottom up doesn't work because of passive (at least).  We're going to try consuming the helper verbs to prevent them from being used over and over as we squish them
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);category(3,MD);child(2,4);is_verb(4):remove_child(1,2);concatenate(1,2);set_category(3,USED_MD):Modal verb phrase
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,be);child(2,4);is_verb(4);category(4,VBG):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ):"is walking" -> "walks"
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,be);child(2,4);is_verb(4);category(4,VBG-HELP):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ-HELP):Same but for helper verbs
+//The passive versions are handled above
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,have);child(2,4);is_verb(4);category(4,VBN):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBD):"have taken" -> "took"
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,have);child(2,4);is_verb(4);category(4,VBN-HELP):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBD-HELP):Same but for helper verbs
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,have);child(2,4);is_verb(4);basic_verb_category(4,VBD):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER):shouldn't happen, but this is a backup; handles helpers and non-helpers
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,do);child(2,4);is_verb(4);category(4,VB):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ):"do expect" -> "expect"
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,do);child(2,4);is_verb(4);category(4,VB-HELP):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ-HELP):"do expect" -> "expect"
+//This next shouldn't really happen, but it apparently does (VBP instead of VB)
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,do);child(2,4);is_verb(4);category(4,VBP):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ):"do expect" -> "expect"
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);is_helper_verb(3);head_word(3,do);child(2,4);is_verb(4);category(4,VBP-HELP):remove_child(1,2);concatenate(1,2);set_category(3,USED_HELPER);set_category(4,VBZ-HELP):"do expect" -> "expect"
+
+//Similar -- collapse compound verb phrases.  This should be distinct because it checks for a main verb rather than a helper verb.  An example of what this rule is supposed to handle is "I started selling..."  Note that we set the root here; if anything wants to interact with selling that is outside this phrase, it needs to go through start first.  (This should probably be true for most transforms).
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,VP);child(4,5);category(5,VBG):set_root(0);replace_child(0,2,4);set_category(5,VBZ):Handles exactly the case of "started selling" -- requires the second verb to be a VBG
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,VP);child(4,5);category(5,VB):set_root(0);replace_child(0,2,4);set_category(5,VBZ):Handles exactly the case of "started selling" -- requires the second verb to be a VB
+
+//Kind of similar: deal with ought.  ought is an MD which is only used in "I ought to go...".  It needs a special rule
+category(0,VP);child(0,1);category(1,MD);head_word(1,ought);child(0,2);category(2,S);child(2,3);category(3,VP);child(3,4);category(4,USED_TO):replace_child(0,2,3):Make it look like "I should go"
+
+//Fix inverted sentences
+category(0,SINV);child(0,1);category(1,S);child(0,2);category(2,VP);child_order(0,1,2);child(0,3);category(3,NP);child_order(0,2,3):set_category(0,S);replace_child(0,1,3);add_child_end(2,1):Invert an inverted sentence.  Note that the head word of the new VP is not set
+category(0,SINV);child(0,1);category(1,VP);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,S);child_order(0,2,3):set_category(0,S);add_child_before(0,1,2);add_child_end(1,3):Different kind of inverted, "says Michael, X"
+category(0,SINV);child(0,1);category(1,ADVP);child(0,2);category(2,VP);child_order(0,1,2);child(0,3);category(3,NP);child_order(0,2,3):set_category(0,S);replace_child(0,1,3);add_child_end(2,1):Invert an inverted sentence starting with an ADVP
+
+//A different kind of inverted sentence: "nor will it say ..." or "nor is it saying..."
+category(0,SINV);child(0,1);category(1,MD);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,VP);child_order(0,2,3):set_category(0,S);set_category(4,VP);add_child_begin(4,1);replace_child(0,3,4);add_child_end(4,3):Fixes this
+category(0,SINV);child(0,1);is_main_verb(1);head_word(1,be);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,VP);child_order(0,2,3):set_category(0,S);set_category(4,VP);add_child_begin(4,1);make_helper(1);replace_child(0,3,4);add_child_end(4,3):Fixes this
+category(0,SINV);child(0,1);is_main_verb(1);head_word(1,have);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,VP);child_order(0,2,3):set_category(0,S);set_category(4,VP);add_child_begin(4,1);make_helper(1);replace_child(0,3,4);add_child_end(4,3):Fixes this
+category(0,SINV);child(0,1);is_main_verb(1);head_word(1,do);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,VP);child_order(0,2,3):set_category(0,S);set_category(4,VP);add_child_begin(4,1);make_helper(1);replace_child(0,3,4);add_child_end(4,3):Fixes this
+
+//SBAR modifying VP
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,SBAR);child(2,3);category(3,S):set_root(3):SBAR modifying a verb -- just cut it off as a new sentence
+
+//Just get rid of intermediate VP nodes with TO (might want to revisit this later if it turns out this loses info)
+child(0,1);not_category(0,VP);category(1,VP);child(1,2);category(2,VP);child(1,3);category(3,TO):remove_child(1,2);concatenate(1,2);set_category(3,USED_TO):Squish a TO modifier of the verb (note that the marker is still around)
+
+//Just picks out a complete sentence and sets it as root
+category(0,S-Comp):set_root(0): S extractor
+
+//S modifying a verb without to and without a subject.  Example : He dares say hurtful things (uncommon rule).  We're going to make sure the main verb is not passive in order to apply this
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);category(3,S-Empty);child(2,4);is_main_verb(4);not_category(4,VBN):set_root(3);set_category(3,S-Comp);add_child_begin(3,1):Add the subject of the sentence to the subordinate phrase
+
+//When there is a SBAR with a WHADVP modifying a verb, we can remove the SBAR and replace it with the S, turning it into the previous rule
+category(0,VP);child(0,1);category(1,SBAR);child(1,2);category(2,WHADVP);child(1,3);category(3,S):replace_child(0,1,3):Do this
+
+//Change SQ into S (appears to be safe)
+category(0,SQ):set_category(0,S):Change SQ to S
+//Changing an SBARQ into an SBAR seems even safer
+category(0,SBARQ):set_category(0,SBAR):Change SBARQ to SBAR
+//also, actually handle SQ's correctly.  There are 3 independent choices: first, there is either a verb, which has to be be,do,or have, or an MD); next, there is an optional RB (which has to be not); finally, whether there is a VP or not.  If there is, it's easy, otherwise we take everything after the NP and put it in the predicate (hopefully this is reasonable).
+category(0,SQ);child(0,1);is_verb(1);child(0,2);category(2,NP);child_order(0,1,2):set_category(3,SQ-Help);replace_child(0,1,3);add_child_end(3,1);make_helper(1):Make an SQ-Help node out of do/be/have
+category(0,SQ);child(0,1);category(1,MD);child(0,2);category(2,NP);child_order(0,1,2):set_category(3,SQ-Help);replace_child(0,1,3);add_child_end(3,1):Make an SQ-Help node out of a modal
+category(0,SQ);child(0,1);category(1,SQ-Help);child(0,2);category(2,RB);sibling_dist(0,1,2,1);child(0,3);category(3,NP);child_order(0,2,3):add_child_end(1,2):Move the RB (should be not) inside the SQ-helper
+//now that we've handled the pre-noun stuff, actually do the transformation
+category(0,SQ);child(0,1);category(1,SQ-Help);child(0,2);category(2,NP);child_order(0,1,2);child(0,3);category(3,VP);child_order(0,2,3):set_category(0,S);replace_child(0,3,1);set_category(1,VP);add_child_end(1,3):Make it a helper verb for a VP
+category(0,SQ);child(0,1);category(1,SQ-Help);child(0,2);category(2,NP);child_order(0,1,2);child(1,3);child_num(1,3,0);is_helper_verb(3):set_category(3,VBZ);set_category(0,S);transfer_children_after(0,2,1);set_category(1,VP);remove_child(0,1);add_child_after(0,2,1):This is kind of tricky.  It takes everything after the NP and puts it in the predicate after the verb (which the SQ-Help becomes), and then moves that VP after the NP
+
+//X Verb ADJ to Y -- e.g. He is likely to go; also preps, "it is cautious about taking...
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);category(7,USED_TO);child(6,8);category(8,VP):set_root(5);replace_child(5,6,8);add_child_begin(5,1);set_category(5,S-Comp):Change to He go -- note that it is not just be that can be here, but remain, seem, etc.
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,PP);child(5,6);category(6,IN);child(5,7);category(7,S-Empty):set_root(7);add_child_begin(7,1);set_category(7,S-Comp):Change to He go -- note that it is not just be that can be here, but remain, seem, etc.
+//Very similar: the trip is worth taking
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);is_main_verb(7):set_root(5);add_child_begin(5,1);set_category(5,S-Comp):Change to He go -- note that it is not just be that can be here, but remain, seem, etc.  Note that this rule is a subrule of the one two earlier
+//Another kind: This is easier for him to read
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,SBAR);child(5,6);category(6,IN);child(5,7);category(7,S-Empty):set_root(7);add_child_begin(7,8);set_category(8,FLOATING);add_child_begin(8,1):This is not that perfect because it doesn't do anything about the to in "Him to take", but I'm not sure how else to do this (I didn't want to make a special rule for having the to vs. not)
+
+//Similar rule -- "They go so far as to" -- has same rule as previous except ADVP instead of ADJP
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADVP);child(4,5);category(5,SBAR);child(5,6);category(6,IN);child(5,7);category(7,S-Empty):set_root(7);add_child_begin(7,8);set_category(8,FLOATING);add_child_begin(8,1):Same but for ADVP
+
+//Modified NP phrases -- we have two cases, depending on the tense of the verb.  The passive version can be either VBN or VBD.  We're going to unify this with the normal handling of passive -- rewrite this sentence as NP is VP... -- note that we get to use the same rule for VBG
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,VP);child(2,3);category(3,VBN):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ-HELP);set_head_word(6,be);add_child_end(5,2):Rewrite
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,VP);child(2,3);category(3,VBD):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ-HELP);set_head_word(6,be);add_child_end(5,2);set_category(3,VBN):Rewrite; VBD instead of VBN
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,VP);child(2,3);category(3,VBG):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ-HELP);set_head_word(6,be);add_child_end(5,2):Rewrite (exact same as earlier)
+
+//Verb as adjective in a noun-phrase
+category(0,NP);child(0,1);category(1,VBN);child(0,2);is_head_child(2):set_category(3,S-Comp);add_child_end(3,4);set_category(4,EMPTY_SUBJ);set_head_word(4,EMPTY);add_child_end(3,5);set_category(5,VP);add_child_end(5,1);add_child_end(5,0);set_root(3);set_category(1,VB):Passive adjective
+category(0,NP);child(0,1);category(1,VBG);child(0,2);is_head_child(2):set_category(3,S-Comp);add_child_end(3,0);add_child_end(3,4);set_category(4,VP);add_child_end(4,1);set_root(3): Active adjective
+//Adjunct rule: if there is a compound adj phrase, like "domestically make", just remove the modifier
+child(0,1);category(1,ADJP);child(1,2);is_verb(2):replace_child(0,1,2):Just change domestically made to made
+
+//Fairly similar: "many desktop terminal be limit to one function".  We're changing the handling of this -- instead of a separate rule, we're changing it to be a normal verb phrase (this will mean, e.g., by is handled automatically)
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,VBN):set_category(4,VP);set_category(6,VBZ);make_helper(6);set_head_word(6,be);replace_child(2,3,6):
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);child(2,4);category(4,ADJP);child(4,5);category(5,VBG):set_category(4,VP);set_category(6,VBZ);make_helper(6);set_head_word(6,be);replace_child(2,3,6):I don't know if this actually ever happens
+
+//If there is an NP with only another NP as child, we will squish it (fixes some other rules
+child(2,0);category(0,NP);child(0,1);category(1,NP);num_children(0,1):replace_child(2,0,1):Just gets rid of useless NP nodes
+//The one thing we can do to fixed nodes is apply this rule
+child(2,0);category(0,NP-Fixed);child(0,1);category(1,NP);num_children(0,1):replace_child(2,0,1);set_category(1,NP-Fixed):Just gets rid of useless NP nodes
+
+//same for VP
+child(2,0);category(0,VP);child(0,1);category(1,VP);num_children(0,1):replace_child(2,0,1):Just gets rid of useless VP nodes
+
+//Rules for VP Obj PP (such as I suspect them of lying to me)
+category(0,S-Comp);child(0,1);child_num(0,1,1);category(1,VP);child(1,2);is_main_verb(2);not_category(2,VBN);child(1,3);category(3,NP);child(1,4);category(4,PP);sibling_dist(1,3,4,1);child(4,5);category(5,IN);head_word(5,of);child(4,6);category(6,S-Empty):set_root(6);add_child_begin(6,3);set_category(6,S-Comp):This pattern with of
+
+//Take objects of di-transitive verbs and rewrite as "X has Y" -- e.g. "I gave him a cookie" -> "He has a cookie."
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,NP);child(0,3);category(3,NP);child_order(0,2,3):set_category(4,S-Comp);set_root(4);add_child_end(4,2);set_category(5,VP);add_child_end(4,5);set_category(6,VBZ);set_head_word(6,have);add_child_end(5,6);add_child_end(5,3): This pattern
+
+//Take possessives and rewrite as X has Y.  Note that this can occasionally do weird things like chance "IBM's decision to ..." to "IBM has a decision to ..." instead of "IBM made a decision to ...".   but it should be okay
+category(0,NP);child(0,1);category(1,NP);child(1,2);category(2,POS):set_category(3,S-Comp);set_root(3);add_child_end(3,1);remove_child(1,2);add_child_end(3,4);set_category(4,VP);add_child_end(4,5);set_category(5,VBZ);set_head_word(5,have);add_child_end(4,0):Rewrites normal possessive
+category(0,NP);child(0,1);category(1,PRP$):set_category(2,S-Comp);set_root(2);add_child_end(2,3);set_category(3,NP);add_child_end(3,1);set_category(1,PRP);add_child_end(2,4);set_category(4,VP);add_child_end(4,5);set_category(5,VBZ);set_head_word(5,have);add_child_end(4,0);copy_original_from(3,1):Rewrites possessive with pronouns
+
+//Similar to possessive: if we have an PP(of) modifier of an NP, do the same thing
+category(0,NP);child(0,1);category(1,PP);child(1,2);category(2,IN);head_word(2,of);child(1,3);category(3,NP):set_category(4,S-Comp);set_root(4);add_child_end(4,3);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ);set_head_word(6,have);add_child_end(5,0);remove_child(0,1):Rewrite "The unwillingess of government to take... " as "The government has the unwillingness to take..."
+//Yet another kind of possessive: "an agreement by L.J. Hooker Corp"
+category(0,NP);child(0,1);category(1,PP);child(1,2);category(2,IN);head_word(2,by);child(1,3);category(3,NP):set_category(4,S-Comp);set_root(4);add_child_end(4,3);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ);set_head_word(6,have);add_child_end(5,0);remove_child(0,1);copy_original_from(3,1):Rewrite "an agreement by X (to Y) as X has an agreement (to Y)"
+//Yet another kind: X with Y (bicycles with wheels)
+category(0,NP);child(0,1);category(1,PP);child(1,2);category(2,IN);head_word(2,with);child(1,3);category(3,NP):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ);set_head_word(6,have);add_child_end(5,3);remove_child(0,1);copy_original_from(3,1):Rewrite "an agreement by X (to Y) as X has an agreement (to Y)"
+
+//Here's a bit of a strange rule: move up possessives to a higher level noun phrase.  There's one place where this definitely fails: conjunctions.  However, I don't think this will be an issue (hopefully).  This rule is necessary for the sentence "In his first testimony since taking the post", his only directly modifies testimony, not the whole noun phrase.  I should try to fix the issue here
+category(0,NP);child(0,1);category(1,NP);child(1,2);category(2,PRP$):add_child_before(0,1,2):Just move up the possessive
+category(0,NP);child(0,1);category(1,NP);child(1,2);category(2,NP);child(2,3);category(3,POS):add_child_before(0,1,2):Same for normal possessives
+
+//Deal with sentences of the form X Verb Y Prep Z", such as "He adopted a plan for getting a new job.", and also X Verb Y S(to), such as "He adopted a plan to get a new job."
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);category(7,USED_TO):set_root(5);set_category(5,S-Comp);add_child_begin(5,1):He adopted a plan to get a new job. -> He get a new job.
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,8);category(8,SBAR);child(8,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);category(7,USED_TO):set_root(5);set_category(5,S-Comp);add_child_begin(5,1);remove_child(4,8): Sometimes includes SBAR as parent of S(TO)
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,5);category(5,PP);child(5,6);category(6,IN);child(5,7);category(7,S-Empty):set_root(7);set_category(7,S-Comp);add_child_begin(7,1):He adopted a plan for getting a new job. -> He get a new job.
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,5);category(5,PP);child(5,6);category(6,TO);child(5,7);category(7,S-Empty):set_root(7);set_category(7,S-Comp);add_child_begin(7,1):He adopted a plan to get a new job. -> He get a new job. (for different parse of the sentence)
+
+//Deal with prepositional modifiers of verbs -- for now, the cases I have are beyond and by and from and before, e.g. "He destroyed the house by blowing it down." -- I'm just changing it to be generic now (but could add features about what the preposition is).  "shrink from taking action".  Note that I'm restricting all the sentences to have just a single verb phrase
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,PP);child(4,5);category(5,IN);child(4,6);category(6,S-Empty):set_root(6);set_category(6,S-Comp);add_child_begin(6,1): "by blowing it down"
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,PP);child(4,5);category(5,TO);child(4,6);category(6,S-Empty):set_root(6);set_category(6,S-Comp);add_child_begin(6,1): "to blow it down"
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,SBAR);child(4,5);category(5,IN);child(4,6);category(6,S-Empty):set_root(6);set_category(6,S-Comp);add_child_begin(6,1): "by blowing it down"
+
+//Similar but more complicated: a prep modifier of a verb which has a noun object which is modified by a perpositional phrase with a verb phrase inside.  We're going to handle this by just taking any sentence of this form and making it be X  has Y.
+//category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,PP);child(4,5);category(5,IN);child(4,6);category(6,NP):set_root(7);set_category(7,S-Comp);add_child_begin(7,1);add_child_end(7,8);set_category(8,VP);add_child_begin(8,9);set_category(9,VBZ);set_head_word(9,have);add_child_end(8,6);word_feature(3);word_feature(5): Nissan has ... after year of make ...
+
+//Instead of the above rule, I'm instead going to have a rule that says that if we have an NP with a PP mod that is a S-Empty, we're going to allow it to replace the NP.  Also, same with modifying S(to).  Note that now, these rules can the special rule about X VP plans to Y (e.g.).
+child(0,1);category(1,NP);child(1,2);category(2,PP);child(2,3);category(3,IN);child(2,4);category(4,S-Empty):replace_child(0,1,4):Just move up the S-Empty
+child(0,1);category(1,NP);child(1,2);category(2,PP);child(2,3);category(3,TO);child(2,4);category(4,S-Empty):replace_child(0,1,4):Just move up the S-Empty
+child(0,1);category(1,NP);child(1,2);category(2,S-Empty);child(2,3);category(3,VP);child_num(2,3,0);child(3,4);category(4,USED_TO):replace_child(0,1,2):Just move up the S-Empty
+
+//S which includes to (this rule handles "expect to remain" -- "expect sales to remain" handled by rules below)
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,S-Empty);child(4,5);child_num(4,5,0);category(5,VP);child(5,6);category(6,USED_TO):set_root(4);set_category(4,S-Comp);add_child_begin(4,1):Move up control
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,S-Empty);child(4,5);child_num(4,5,0);category(5,VP);child(5,6);is_main_verb(6);category(6,VBG):set_root(4);set_category(4,S-Comp);add_child_begin(4,1):Same rule, except doesn't require TO and requires a VBG (begin importing)
+
+//Second case of prepositional modifiers -- these ones take as argument the direct argument of the main verb -- block X from V or "urge him to take".  Note that we could change the tense of VBG to VBZ
+category(0,VP);child(0,1);is_main_verb(1);not_category(1,VBN);child(0,2);category(2,NP);child(0,3);category(3,PP);child_order(0,2,3);child(3,4);category(4,IN);child(3,5);category(5,S-Empty):set_root(5);set_category(5,S-Comp);add_child_begin(5,2): "block him from taking" for "attacked him for taking"
+category(0,VP);child(0,1);is_main_verb(1);not_category(1,VBN);child(0,2);category(2,NP);child(0,3);category(3,PP);child_order(0,2,3);child(3,4);category(4,TO);child(3,5);category(5,S-Empty):set_root(5);set_category(5,S-Comp);add_child_begin(5,2): "adapted yeast to making..."
+category(0,VP);child(0,1);is_main_verb(1);not_category(1,VBN);child(0,2);category(2,NP);child(0,3);category(3,S-Empty);child_order(0,2,3);child(3,4);child_num(3,4,0);category(4,VP);child(4,5);category(5,USED_TO):set_root(3);set_category(3,S-Comp);add_child_begin(3,2): "urged him to take"
+
+//Here's a pretty tricky rule (i.e., it's hard to tell what the right rule to use is).  Changes "I want a car to sell" into "FLOATING-car I sell"
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(2,5);category(5,S-Empty);child_order(2,4,5);child(5,6);child_num(5,6,0);category(6,VP);child(6,7);category(7,USED_TO):set_root(5);set_category(5,S-Comp);add_child_begin(5,1);add_child_begin(5,8);set_category(8,FLOATING);add_child_end(8,4):Do this
+//We're going to also have versions that work when the S modifies the noun directly.  It turns out that this one is also causing problems -- a typed SBAR system would probably fix it, but for now this can interact badly with the rule that turns an SBAR with a WHNP into an NP
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);category(7,USED_TO):set_root(5);set_category(5,S-Comp);add_child_begin(5,1);add_child_begin(5,8);set_category(8,FLOATING);add_child_end(8,4):I want a car to sell -> I sell a car
+//This one is extremely dangerous because it allows "leader, who urge he to support" to be processed by this rule, which is not good I think
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);is_main_verb(3);not_category(3,VBN);child(2,4);category(4,NP);child(4,8);category(8,SBAR);child(8,5);category(5,S-Empty);child(5,6);category(6,VP);child(6,7);category(7,USED_TO):set_root(5);set_category(5,S-Comp);add_child_begin(5,1);add_child_begin(5,9);set_category(9,FLOATING);add_child_end(9,4);remove_child(4,8): Same but with an inserted SBAR
+
+//Deal with "But, he says, ..." -- interposed he says -- there is a PRN phrase involved
+category(0,S);child(0,1);category(1,PRN);child(1,2);category(2,S);child(2,3);category(3,VP):set_root(2);remove_child(0,1);add_child_end(3,0):Rewrite
+
+//Remove PRN nodes when there is a PP inside
+child(0,1);category(1,PRN);child(1,2);category(2,PP):replace_child(0,1,2):Remove the PRN
+
+//special rules for verbs acting as prepositions
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,PP);child(2,3);category(3,VBG):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,2);set_category(2,VP);set_category(3,VBZ): Handle the proposition "including"
+//This rule is similar, but this time the ing phrase modifies an S which becomes the subject
+category(0,S-Comp);child(0,1);category(1,VP);child(1,2);category(2,PP);child(2,3);category(3,VBG):set_category(4,S-Comp);add_child_end(4,0);add_child_end(4,2);set_category(2,VP);set_category(3,VBZ);set_root(4):
+category(0,PP);child(0,1);category(1,VBN):set_category(2,S-Comp);set_root(2);add_child_end(2,3);set_category(3,EMTPY_SUBJ);set_head_word(3,EMPTY);add_child_end(2,0);set_category(0,VP);set_category(1,VBZ): Handle the proposition "given" and other similar ones
+category(0,PP);child(0,1);category(1,VBN):set_category(2,S-Comp);set_root(2);add_child_end(2,3);set_category(3,EMTPY_SUBJ);set_head_word(3,EMPTY);add_child_end(2,0);set_category(0,VP);set_category(1,VBZ): Handle the proposition "given" and other similar ones
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,PP);child(2,3);category(3,VBN):set_category(4,S-Comp);set_root(4);add_child_end(4,0);add_child_end(4,5);set_category(5,VP);add_child_end(5,6);set_category(6,VBZ-HELP);set_head_word(6,be);add_child_end(5,2);set_category(2,VP): Handle prepositional phrases modifying nouns (X based in Y)
+
+//We're going to modify these rules so that they change the type of the NPs involved into NP-Fixed  -- this will have the effect of not letting them be moved.  This should stop some of the blow up that has been happening, without losing many (or any) valid derivations.  Obviously at the end all the NP-Fixed nodes need to be put back to NPs.  Right now this is VERY restrictive -- once you have done this, you can't do anything, even for example squish down empty NP nodes (which basically is always desired after doing this).  I'm going to see how it works before deciding whether to "fix" this
+
+//Kind of strange rule: given a verb, which has an NP argument which has an SBAR to argument, move the SBAR to argument to modify the verb
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,NP);child(2,3);category(3,SBAR);child(3,4);category(4,S-Empty);child(4,5);child_num(4,5,0);category(5,VP);child(5,6);category(6,USED_TO):add_child_after(0,2,4);remove_child(2,3);set_category(2,NP-Fixed): Inconsistent parsing; whether "take step to X" is parsed with to X modifying step or not; this unifies them
+//Same thing but for preps
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,NP);child(2,3);category(3,PP):add_child_after(0,2,3);set_category(2,NP-Fixed):
+
+//deal with comma modifiers, such as "Investors didn't buy, preferring to save their money for later."  Need one rule to remove the modifier, and one to use it.  Note that these rules differ from before -- now they look for a VP followed by whatever is under consideration
+//First type: the modifier is actually used for something
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);category(3,VP);child(2,4);category(4,S-Empty);child_order(2,3,4):set_root(4);set_category(4,S-Comp);add_child_begin(4,1):Make sentence out of S modifier following a VP
+
+//Second type: just cut off the modifier
+category(0,VP);child(0,1);category(1,VP);child(0,2);category(2,S);child_order(0,1,2):remove_child(0,2):Remove the S modifier
+category(0,VP);child(0,1);category(1,VP);child(0,2);category(2,NP);child_order(0,1,2):remove_child(0,2):Remove the NP modifier
+category(0,VP);child(0,1);category(1,VP);child(0,2);category(2,SBAR);child_order(0,1,2):remove_child(0,2):Remove the SBAR modifier
+
+
+//Other kinds of presubject modifiers: some kinds directly modify the noun phrase (subject) that follows
+category(0,S);child(0,1);category(1,S-Empty);child(1,2);child_num(1,2,0);category(2,VP);child(0,3);category(3,NP);child_order(0,1,3);child(0,4);category(4,VP);child_order(0,3,4):set_category(5,NP);replace_child(0,3,5);add_child_begin(5,3);add_child_end(5,2);remove_child(0,1):Rewrite "Taken together, the first and second" as "The first and second taken together"
+
+//Somewhat special rule, example is make this trip worth taking.  We cover quite a lot of cases here: it could be an NP or an S followed by an NP, ADJP, or even a VP
+//First we have the rules that handle the stuff inside the S node
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,NP);child_num(2,3,0);child(2,4);category(4,ADJP);child_num(2,4,1):set_category(5,S-Comp);set_root(5);add_child_begin(5,3);add_child_end(5,6);set_category(6,VP);add_child_begin(6,7);set_category(7,VBZ);set_head_word(7,be);add_child_end(6,4):Make the sentence into This trip is worth taking
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,S);child_num(2,3,0);child(2,4);category(4,ADJP);child_num(2,4,1):set_category(5,S-Comp);set_root(5);add_child_begin(5,3);add_child_end(5,6);set_category(6,VP);add_child_begin(6,7);set_category(7,VBZ);set_head_word(7,be);add_child_end(6,4):Make "make jumping the wall difficult" into "jumping the wall is difficult
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,NP);child_num(2,3,0);child(2,4);category(4,NP);child_num(2,4,1):set_category(5,S-Comp);set_root(5);add_child_begin(5,3);add_child_end(5,6);set_category(6,VP);add_child_begin(6,7);set_category(7,VBZ);set_head_word(7,be);add_child_end(6,4):made him the president to him is the president
+//We also need to make everything work from the point of view of make.  To do this, we're just going to move everything up to modify the VP.  The rules are pretty loose right now -- they allow any S that starts with an S or an NP to be move
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,NP);child_num(2,3,0):replace_child_with_contents(0,2,2):Simply move the arguments up one level (removing the S node)
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,S);child_num(2,3,0):replace_child_with_contents(0,2,2):Same but with S
+//Also move things up, but this time when it starts with an ADJP.  The main case I've seen is "make sure".  There are two ways it occurs: S -> ADJP SBAR, and ADJP-> JJ SBAR, we're just going to have a rule for each.
+category(0,VP);child(0,1);is_main_verb(1);child(0,2);category(2,S);child(2,3);category(3,ADJP);child_num(2,3,0);child(2,4);category(4,SBAR);child_num(2,4,1):replace_child_with_contents(0,2,2):Do this
+//We're going to rewrite the second way as the first (shouldn't hurt anything I think)
+category(0,ADJP);child(0,1);category(1,JJ);child(0,2);category(2,SBAR):set_category(0,S);replace_child(0,1,3);set_category(3,ADJP);add_child_begin(3,1):Just make it like the previous
+
+//Another very similar: change a PP with two leading PP children by moving everything up
+child(3,0);category(3,VP);category(0,PP);child(0,1);child_num(0,1,0);category(1,PP);child(0,2);category(2,PP);child_num(0,2,1):replace_child_with_contents(3,0,0):Just move them up
+
+//Very similar rule: change an ADJP superlative modifier (a form easier for him to take), to "a form is easier for him to take"
+category(0,NP);child(0,1);category(1,ADJP);child(1,2);category(2,JJR):set_category(3,S-Comp);set_root(3);add_child_begin(3,0);add_child_end(3,4);set_category(4,VP);add_child_begin(4,5);set_category(5,VBZ);set_head_word(5,be);add_child_end(4,1):This rule
+
+//Stupid special case: it appears that "higher than X" (examples: X = expected, or anticipated), the verb is classified as a VBN (which maybe makes sense as a syntactic classification since in some ways it is acting as an adjective, but I'm analyzing it as "than (they) expected", where it would be a VBD).  In any case, to fix this I have a special rule which changes it to a VBD -- Ideally I would have a complete rule that would substitue in the missing subject in this case, but I'll just rely on other rules
+category(0,SBAR);child(0,1);category(1,IN);head_word(1,than);child(0,2);category(2,S);child(2,3);category(3,VP);child(3,4);category(4,VBN):set_category(4,VBD):Do this
+
+//I hate to do this, but maybe once there are features on the rules this will be okay: there are a nontrivial number of cases where a past tense VBD is labeled as VBN regularly (e.g., increased).  Therefore, I'm going to allow changing any VBN into a VBD
+//I'm going to replace this with specific rules change VBDs into VBNs instead
+//category(0,VBN):set_category(0,VBD);word_feature(0):Hopefully this won't slow down things much
+
+//No idea if this is general at all -- the example is "He forgave debt in exchange for taking stock."  The correct analysis would be to rewrite as He exchanged forgiving debt for taking stock, but this requires changing a noun into a verb, which I'm hesitant to do.  What I'll do is write that rule, but require exchange to be the noun
+category(0,S-Comp);child(0,1);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,VP);child(2,3);category(3,PP);child(3,4);category(4,IN);head_word(4,in);child(3,5);category(5,NP);child(5,6);category(6,NP);head_word(6,exchange);child(6,7);category(7,NN);head_word(7,exchange):replace_child(0,2,5);set_category(5,VP);replace_child(5,6,7);set_category(7,VB);add_child_after(5,7,8);set_category(8,S-Empty);add_child_begin(8,2);remove_child(2,3):Rewrite as He exchanged forgiving debt for taking stock
+
+//SBAR modifying a noun.  This is actually a very hard case -- particularly tough, "the thing (that) he said (that) he would do".  We're going to handle this by propagating down a "floating" argument that we try to find a home for.  To handle this hard sentence, probably need another rule that says the direct object can acquire a modifying SBAR
+category(0,NP);child(0,1);category(1,NP);child(0,2);category(2,SBAR);child(2,3);is_typed_sentence(3):set_root(3);remove_child(0,2);add_child_begin(3,4);set_category(4,FLOATING);add_child_begin(4,0):Take an SBAR modifying a noun, and put the noun phrase as a FLOATING node modifying the sentence (as a new sentence)
+//Now the rules that do something with the floating node
+category(0,S-Empty);child(0,1);category(1,FLOATING);child_num(0,1,0);child(1,2):replace_child(0,1,2);set_category(0,S-Comp):Put the floating node in the subject position of an empty sentence
+category(0,S-Comp);child(0,1);category(1,FLOATING);child_num(0,1,0);child(1,2);child(0,3);child_num(0,3,2);category(3,VP);child(3,4);is_main_verb(4);child(0,5);child_num(0,5,1);not_category(5,EMPTY_SUBJ):add_child_after(3,4,2);remove_child(0,1):Put the floating node in the direct object position -- only if the subject is not empty -- note that below, we have a rule involving TO; in this rule, we can skip an EMPTY_SUBJ
+category(0,S-Comp);child(0,1);category(1,FLOATING);child_num(0,1,0);child(1,2);child(0,3);child_num(0,3,2);category(3,VP);child(3,4);is_main_verb(4);child(3,5);category(5,PP);num_children(5,1):add_child_end(5,2);remove_child(0,1):Put the floating node in an empty PP phrase
+
+//Rule for appositives -- commas are an ok but unreliable indicator of an appostive (ambiguous with conjunctions).  Since we're removing commas during preprocessing, we're simply going to have the rule that if there is an NP with an NP followed by either an NP or an ADJP, we're going to change it into NP1 is NP2/ADJP.
+category(0,NP);child(0,1);category(1,NP);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,NP);num_children(0,2):set_category(3,S-Comp);set_root(3);add_child_begin(3,0);add_child_end(3,4);set_category(4,VP);add_child_begin(4,5);set_category(5,VBZ);set_head_word(5,be);add_child_end(4,2):Change "Bush, the president" to "Bush is the president"
+category(0,NP);child(0,1);category(1,NP);child_num(0,1,0);child(0,2);child_num(0,2,1);category(2,ADJP);num_children(0,2):set_category(3,S-Comp);set_root(3);add_child_begin(3,0);add_child_end(3,4);set_category(4,VP);add_child_begin(4,5);set_category(5,VBZ);set_head_word(5,be);add_child_end(4,2):Change "Sam, happy to be here," to "Sam is happy to be here"
+
+//Sometimes, S(to) have a parent which is an SBAR, which gets in the way.  We're going to add a rule which takes an SBAR which has an S-Empty as the ONLY child, and just remove the SBAR.  Hopefully this won't blow up
+child(0,1);category(1,SBAR);child(1,2);category(2,S-Empty);child(2,3);category(3,VP);child(3,4);is_main_verb(4);child(3,5);category(5,USED_TO):replace_child(0,1,2):Just move it up
+
+//Note: we shouldn't need to remove leaves that are either quotes or commas since this is done by a preprocessor.  However, this does leave PRNs to deal with
+child(0,1);category(1,PRN):remove_child(0,1):Remove a PRN phrase
+
+//WHNP is quite hard -- can go in a number of places.  Also, have to do it "in place" -- consider "They have not decided what to do." -- need to change to "They have not decided to do what."  I'm not sure this in place is always correct: consider "nationalize whatever industry it likes".  CHANGED: Now I'm going to analyze it in two ways.  One way is as it is currently analyzed, which allows the handling of "decided what to do".  The other way is just to convert it to the noun modified by SBAR case, which is almost identical.  I think this will work
+child(0,1);category(1,SBAR);child(1,2);category(2,WHNP);child(1,3);is_typed_sentence(3):replace_child(0,1,3);add_child_begin(3,4);set_category(4,FLOATING);add_child_begin(4,1);set_category(1,NP);set_category(2,NP):Do this.  Note that we're not handling "to" again in the subordinate sentence -- this actually may be what we want here.  This is analysis one.  Note that it now differs from analysis two only in that it puts the modified sentence at the root (it still changes the POS tags of the SBAR and the WHNP)
+category(0,SBAR);child(0,1);category(1,WHNP);child(0,2);category(2,S):set_category(0,NP);set_category(1,NP);replace_child(0,2,3);set_category(3,SBAR);add_child_end(3,2):analysis two is very simple, just changing phrase types and adding an intermediate SBAR node
+
+//Need separate rules for floaters for sentences with the main verb phrase a TO phrase -- it shouldn't need to go in the subject position.  We'll handle this by having a copy of the earlier rules but also mentioning the TO (this should bias it towards not putting it in subject pos)
+category(0,S-Comp);child(0,1);category(1,FLOATING);child_num(0,1,0);child(1,2);child(0,3);child_num(0,3,2);category(3,VP);child(3,4);is_main_verb(4);child(3,5);category(5,USED_TO):add_child_after(3,4,2);remove_child(0,1):Put the floating node in the direct object position
+category(0,S-Comp);child(0,1);category(1,FLOATING);child_num(0,1,0);child(1,2);child(0,3);child_num(0,3,2);category(3,VP);child(3,4);is_main_verb(4);child(3,5);category(5,PP);num_children(5,1);child(3,6);category(6,USED_TO):add_child_end(5,2);remove_child(0,1):Put the floating node in an empty PP phrase
+
+//Another thing that happens sometimes: VBG gerunds as NPs rather than VBs.  For example, "Spending has risen..."
+category(0,NP);child(0,1);category(1,NP);child(1,2);category(2,VBG);is_head_child(2):set_root(3);set_category(3,S-Comp);add_child_begin(3,4);set_category(4,EMPTY_SUBJ);set_head_word(4,EMPTY);add_child_end(3,0);set_category(0,VP);replace_child(0,1,2):Change it into a stand alone sentence
+category(0,NP);child(0,1);category(1,NP);child(1,2);category(2,VBG);is_head_child(2);child(0,3);category(3,PP);child(3,4);category(4,IN);head_word(4,by);child(3,5);category(5,NP):set_root(6);set_category(6,S-Comp);add_child_begin(6,5);add_child_end(6,0);set_category(0,VP);replace_child(0,1,2);remove_child(0,3);copy_original_from(5,3):Same thing but with by subj -- this is an unusual case because it is a VBG but can have a by subj
+
+//We're probably going to want a rule which "combines" a WHNP with a floating noun -- but for now we don't
+
+
