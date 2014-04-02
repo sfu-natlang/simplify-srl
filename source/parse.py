@@ -9,10 +9,8 @@ class TreeNode:
 		self.name = re.sub(r'[(|)]',r'',f)
 		self.prop = None
 		self.label = None
-		self.rules = [[]]
+		self.origname = f
 		self.role = None
-		self.origname = f 
-		self.currChoiceNode = 0
 		self.head = None #define head
 		new = re.sub(r'=',r'-',self.name)
 		if re.search('-',new) is not None and re.search('^-',new) is None:
@@ -28,8 +26,7 @@ class TreeNode:
 		if self.label == "": self.label = node.label
 		if self.head == None: self.head = node.head
 		if self.role == None: self.role = node.role
-		self.origname = node.origname
-		self.rules = [copy.deepcopy(node.rules[node.currChoiceNode])]
+		self.id = node.id
 class Tree:
 	def __init__(self,parse):
 		self.chart = {}
@@ -37,6 +34,7 @@ class Tree:
 		self.origTree = {} #untransformed
 		self.nodes = {}
 		self.parentOf = {}
+		self.treeRulesMap = {}
 		self.updatedChart = {}
 		self.helpkeys = {"was":1,"is":1,"had":1, "are":1, "were":1, "has":1, "be":1,"have":1,"do":1,"get":1} #headword
 		self.read(parse)
@@ -46,7 +44,7 @@ class Tree:
 		help = []
 		id = 0
 		parse = re.sub(r'\s+',r' ',parse)
-		#print parse
+		print parse
 		for f in parse.split(' '):
 			if re.search('^\(',f) is not None:
 				n = TreeNode(f,id)
@@ -91,40 +89,40 @@ class Tree:
 					if not c.id == h[0] and c.label == "VP":
 						self.nodes[h[1]].role = "HELP"
 						self.nodes[h[0]].role = "HELP"
-	def updateChart(self,ruleid):
+	def updateChart(self,rulesUsed):
 		#self.newParse()
 		if self.hasCycle(): 
-			#print "Yes"
+			print "Yes"
 			return
 		cQ = deque([0])
 		while len(cQ) > 0:
 			h = cQ.popleft()
+			if re.search('^VB',self.nodes[h].name) is not None:
+				string = self.nodes[h].head
+				count = 1
+				gp = h
+				while self.parentOf.has_key(gp):
+					string = self.nodes[self.parentOf[gp]].name +"->"+ string
+					gp = self.parentOf[gp]
+					count += 1
+				if count == 4:
+					#fPtr.write(self.nodes[h].head)
+					if self.treeRulesMap.has_key((self.nodes[h].head,self.nodes[h].id)):
+						for rID in rulesUsed:
+							if rID not in self.treeRulesMap[(self.nodes[h].head,self.nodes[h].id)]:
+							     self.treeRulesMap[(self.nodes[h].head,self.nodes[h].id)].append(rID)
+					else:
+						self.treeRulesMap[(self.nodes[h].head,self.nodes[h].id)] = copy.deepcopy(rulesUsed)
+						#fPtr.write("\t"+ str(self.nodes[h].id) + "\t"+str(rulesUsed)[1:-1] +"\n")
 			if self.tree.has_key(h):
 				newC = copy.deepcopy(self.tree[h])
-				union = copy.deepcopy([ruleid])
-				for newchild in newC:
-					childOrNode = self.nodes[newchild].currChoiceNode
-					childRule = self.nodes[newchild].rules[childOrNode]
-					for ele in [x for x in childRule if x not in union]:
-						union.append(ele)
 				try:
-					pos = self.updatedChart[h].index(newC)
-					print "found before",h,self.nodes[h].rules[pos]
-					for ele in [x for x in union if x not in self.nodes[h].rules[pos]]:
-						self.nodes[h].rules[pos].append(ele)
-					print "found after",h,pos,self.nodes[h].rules[pos]
+					self.updatedChart[h].index(newC)
 				except:
 					if self.updatedChart.has_key(h):
 						self.updatedChart[h].append(newC)
-						print "not found but chart before",h,self.nodes[h].rules
-						self.nodes[h].rules.append(union)
-						print "not found but chart after",h,self.nodes[h].rules
 					else:
-						self.updatedChart[h] = copy.deepcopy([newC])
-						print "not found before",h,self.nodes[h].rules
-						for ele in [x for x in union if x not in self.nodes[h].rules[0]]:
-							self.nodes[h].rules[0].append(ele)
-						print "not found after",h,self.nodes[h].rules
+						self.updatedChart[h] = [newC]
 				for c in newC:
 					cQ.append(c)
 	def compare(self,newC,h):

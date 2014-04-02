@@ -5,6 +5,12 @@ import copy
 from parse import *
 from transform import *
 from rule import *
+import gc
+import signal
+
+def signal_handler(signum, frame):
+    raise Exception("Timed out!")
+
 
 class Main:
 	def __init__(self,treein,treeout,rObj):
@@ -12,13 +18,29 @@ class Main:
 		self.rObj = rObj
 		self.out = open(treeout,"w")
 		sentId = 0
+		gc.enable()
+
 		for parse in self.iPtr:
 			sentId += 1
 			t = Tree(parse[:-1])
-			#self.ruleMatch(t)
-			#self.out.write("*****************sentence num:"+str(sentId)+"***************\n")
-			#self.printSentences(t)
-			self.printTreeFlat(t)
+			signal.signal(signal.SIGALRM, signal_handler)
+			signal.alarm(1200)   # Ten seconds
+			try:
+				self.ruleMatch(t)
+				self.out.write("sentence num:"+str(sentId)+"\n")
+				self.out.write(str(t.treeRulesMap)+"\n")
+				self.out.write("CHART\n"+str(t.updatedChart)+"\n")
+				nodedict = {}
+			        for node in t.nodes.keys():
+                		        nodedict[node] = (t.nodes[node].id,t.nodes[node].name,
+                        	        t.nodes[node].origname,t.nodes[node].label,
+                                	t.nodes[node].role,t.nodes[node].head)
+		                self.out.write("NODES\n"+str(nodedict)+"\n\n")
+				#self.printSentences(t)
+			except Exception, msg:
+				self.out.write("sentence num:"+str(sentId)+"\nTimedOut\n\n")
+				
+
 		self.out.close
 	def ruleMatch(self,t):
 		#print t.chart
@@ -41,16 +63,17 @@ class Main:
 			fullrule[1].transformedNodes = {}
 			fullrule[1].emptyNodes = {}
 	        	Is1 = [] #node stack
-		        Is2 = [({},-1,0,{},[],{})] #parse forest stack parse,children,head,parentOf,visited
+		        Is2 = deque([({},-1,0,{},[],{})]) #parse forest stack parse,children,head,parentOf,visited
 			parseNum = 0
+			del t.chart
 			t.chart = copy.deepcopy(t.updatedChart)
 			#print t.chart
+
 		        while len(Is2) > 0:
 				cycleFlag = False
-        		        Ip,Ic,Ih,IpH,Is1,Iv = copy.deepcopy(Is2.pop())
+        		        Ip,Ic,Ih,IpH,Is1,Iv = copy.deepcopy(Is2.popleft())
 		                if not Ic == -1:
         		                Ip[Ih] = copy.deepcopy(Ic)
-					t.nodes[Ih].currChoiceNode -= 1
                 		        for Icc in Ic:
                         		        Is1.append(Icc)
 						IpH[Icc] = Ih
@@ -71,18 +94,20 @@ class Main:
 	        	                        else:
         	        	                        for Ic in t.chart[Ih]:
                 	        	                        Is2.append((Ip,Ic,Ih,IpH,Is1,Iv))
-                        		       	        Ip,Ic,Ih,IpH,Is1,Iv = copy.deepcopy(Is2.pop())
-							t.nodes[Ih].currChoiceNode = len(t.chart[Ih]) - 1
+                        		       	        Ip,Ic,Ih,IpH,Is1,Iv = copy.deepcopy(Is2.popleft())
                                         		Ip[Ih] = copy.deepcopy(Ic)
 		                                        for Icc in Ic :   
         		                                        Is1.append(Icc)
 								IpH[Icc] = Ih
+				#print "length",len(Is2)
 				if cycleFlag: continue
 				parseNum+=1
 				if parseNum > 300: break
-				#print Ip ,"In Parse",parseNum
+				#print "In Parse",parseNum, rID
+				#print t.chart
 			
 				#print parseNum, len(t.nodes),rID
+				del t.origTree
 				t.origTree = copy.deepcopy(Ip)
 				#print "\n\n*******original", t.origTree
 				tQ = deque([0])
@@ -115,49 +140,27 @@ class Main:
 						#print "=============MATCHED RULE #",rID,"===============", h1
 						#print >> sys.stderr, fullrule[2]
 						#print fullrule[2]
+						del t.tree
+						del t.parentOf
 						t.tree = copy.deepcopy(Ip)
 						t.parentOf = copy.deepcopy(IpH)
-						rhs.transform(nodeMap,t,rID)
-						t.updateChart(rID)
+						try:
+							rhs.transform(nodeMap,t,rID)
+							t.updateChart([rID])
+						except: continue
 						#print "transformed", t.tree
 					if t.origTree.has_key(n):
 						for c in t.origTree[n]:
 							tQ.append(c)
-			#print t.chart
-	def printSentences(self,t):
-		#(currTrees,currParents) = self.iterateTrees(0,t.chart)
-		#for cID,curr in enumerate(currTrees):
-		#	self.printTree(t,curr,0,"",currParents[cID])
+				del tQ
+				del Is1
+			del Is2
 		#print t.chart
-		self.out.write(str(t.chart)+"\n")
-		nodedict = {}
-		for node in t.nodes.keys():
-			nodedict[node] = (t.nodes[node].name,
-				t.nodes[node].origname,t.nodes[node].label,
-				t.nodes[node].role,t.nodes[node].head,t.nodes[node].rules)
-		self.out.write(str(nodedict)+"\n\n")
-	def printTreeFlat(self,t):	
+	def printSentences(self,t):
 		(currTrees,currParents) = self.iterateTrees(0,t.chart)
 		for cID,curr in enumerate(currTrees):
-			S = self.printT(t,curr,0,"",currParents[cID])
-			S = S[1:]
-			for w in S.split(" "): 
-			#	if re.search('^\*',w) is None and not w == "0": 
-				print w
-		print "\n"
-	def printT(self,t,curr,head,sent,parentOf):
-		if not curr.has_key(head):
-			if t.nodes[head].head == None:
-				sent += " "+t.nodes[head].name 
-			else:
-				sent += " "+t.nodes[head].head 
-			return sent
-		else:
-			for c in curr[head]:
-				sent = self.printTree(t,curr,c,sent,parentOf)
-		return sent
-			
-		
+			print self.printTree(t,curr,0,"",currParents[cID])
+		#print t.chart
 	def printTree(self,t,curr,head,sent,parentOf):
 		if not curr.has_key(head): 
 			#sent += " "+t.nodes[head].name +" "+str(head)
@@ -180,12 +183,12 @@ class Main:
 		return sent
 	def iterateTrees(self,head,chart):
 	        s1 = [] #node stack
-	        s2 = [({},-1,head,{},[],{})] #parse forest stack
+	        s2 = deque([({},-1,head,{},[],{})]) #parse forest stack
 		parses = []
 		parents = []
 	        while len(s2) > 0:
 			cycleFlag = False
-        	        p,c,h,pH,s1,v = copy.deepcopy(s2.pop())
+        	        p,c,h,pH,s1,v = copy.deepcopy(s2.popleft())
 	                if not c == -1:
         	                p[h] = copy.deepcopy(c)
                 	        for cc in c:
@@ -208,7 +211,7 @@ class Main:
         	                        else:
                 	                        for c in chart[h]:
                         	                        s2.append((p,c,h,pH,s1,v))
-                                	        p,c,h,pH,s1,v = copy.deepcopy(s2.pop())
+                                	        p,c,h,pH,s1,v = copy.deepcopy(s2.popleft())
                                         	p[h] = copy.deepcopy(c)
 	                                        for cc in c :   
         	                                        s1.append(cc)
