@@ -1,10 +1,10 @@
 import re
-import sys
+#import sys
 from collections import deque
 import copy
 from parse import *
-from transform import *
-from rule import *
+#from transform import *
+#from rule import *
 import gc
 import signal
 
@@ -13,42 +13,47 @@ def signal_handler(signum, frame):
 
 class Main:
     def __init__(self,treein,treeout,rObj):
-        self.iPtr = open(treein,"r")
+        #self.iPtr = open(treein,"r")
         self.rObj = rObj
-        self.out = open(treeout,"w")
+        self.origtrees = []
+        self.finaltrees = []
+        #self.out = open(treeout,"w")
         sentId = 0
         gc.enable()
-        for parse in self.iPtr:
-            sentId += 1
-            t = Tree(parse[:-1])
-            signal.signal(signal.SIGALRM, signal_handler)
-            signal.alarm(1200) # Ten seconds
-            try:
-                self.ruleMatch(t)
-                self.out.write("sentence num:"+str(sentId)+"\n")
-                self.out.write(str(t.treeRulesMap)+"\n")
-                self.out.write("CHART\n"+str(t.updatedChart)+"\n")
-                nodedict = {}
-                for node in t.nodes.keys():
-                    nodedict[node] = (t.nodes[node].id,t.nodes[node].name,
-                    t.nodes[node].origname,t.nodes[node].label,
-                    t.nodes[node].role,t.nodes[node].head)
-                self.out.write("NODES\n"+str(nodedict)+"\n\n")
-                #self.printSentences(t)
-            except Exception, msg:
-                self.out.write("sentence num:"+str(sentId)+"\nTimedOut\n\n")
-        self.out.close
+        with open(treeout,"w") as out:
+            for parse in open(treein,"r"):#self.iPtr:
+                sentId += 1
+                t = Tree(parse[:-1])
+                self.origtrees.append(t)
+                signal.signal(signal.SIGALRM, signal_handler)
+                signal.alarm(1200) # Ten seconds
+                try:
+                    self.ruleMatch(t)
+                    self.finaltrees.append(t)
+                    out.write("sentence num:"+str(sentId)+"\n")
+                    out.write(str(t.treeRulesMap)+"\n")
+                    out.write("CHART\n"+str(t.updatedChart)+"\n")
+                    nodedict = {}
+                    for node in t.nodes:
+                        nodedict[node] = (t.nodes[node].id,t.nodes[node].name,
+                        t.nodes[node].origname,t.nodes[node].label,
+                        t.nodes[node].role,t.nodes[node].head)
+                    out.write("NODES\n"+str(nodedict)+"\n\n")
+                    #self.printSentences(t)
+                except Exception, msg:
+                    out.write("sentence num:"+str(sentId)+"\nTimedOut\n\n")
+        #self.out.close
 
     def ruleMatch(self,t):
         #print t.chart
         for rID,fullrule in enumerate(self.rObj.rules):
             #if rID < 19 or rID > 20: continue
             #visited = {} # visited nodes (treenodeId,rulenodeID,rID) = (flag,map)
-            '''
+            """
             myChart = {
-                0: [[1], [23]], 1: [[2, 10, 12, 15]], 2: [[3, 5]], 
-                3: [[4]], 5: [[6, 8]], 6: [[7]], 8: [[9]], 10: [[11]], 
-                12: [[13]], 13: [[14]], 15: [[16, 18]], 16: [[17]], 18: [[19, 21]], 
+                0: [[1], [23]], 1: [[2, 10, 12, 15]], 2: [[3, 5]],
+                3: [[4]], 5: [[6, 8]], 6: [[7]], 8: [[9]], 10: [[11]],
+                12: [[13]], 13: [[14]], 15: [[16, 18]], 16: [[17]], 18: [[19, 21]],
                 19: [[20]], 21: [[22]], 23: [[10, 12, 24]], 24: [[16, 18, 2]]
             }
             print myChart
@@ -56,7 +61,7 @@ class Main:
             for c in currTrees:
                 print c
             sys.exit(0)
-            '''
+            """
             fullrule[1].transformedNodes = {}
             fullrule[1].emptyNodes = {}
             Is1 = [] #node stack
@@ -124,7 +129,7 @@ class Main:
                         if flag:
                             transform = 1
                             nodeMap[h2] = h1
-                            for k in map.keys():
+                            for k in map:
                                 q2.append(k)
                                 q1.append(map[k][1])
                         else:
@@ -159,12 +164,12 @@ class Main:
         #print t.chart
 
     def printTree(self,t,curr,head,sent,parentOf):
-        if not curr.has_key(head): 
+        if not curr.has_key(head):
             #sent += " "+t.nodes[head].name +" "+str(head)
             if t.nodes[head].head == None:
-                sent += " "+t.nodes[head].name 
+                sent += " "+t.nodes[head].name
             else:
-                sent += " "+t.nodes[head].head 
+                sent += " "+t.nodes[head].head
             return sent
         else:
             for c in curr[head]:
@@ -196,7 +201,7 @@ class Main:
                 s1 = [h]
             while len(s1) > 0:
                 h = s1.pop()
-                if v.has_key(h): 
+                if v.has_key(h):
                     cycleFlag = True
                     break
                 v[h] = 1
@@ -214,13 +219,14 @@ class Main:
                         for cc in c :
                             s1.append(cc)
                             pH[cc] = h
-            if cycleFlag: continue
-                
+            if cycleFlag:
+                continue
             parses.append(p)
             parents.append(pH)
-            if len(parses) > 300: break
+            if len(parses) > 300:
+                break
         return (parses,parents)
-                
+
     def generateTrees(self,head,chart,parses,parents):
         if not chart.has_key(head):
             return (parses,parents)
@@ -228,7 +234,7 @@ class Main:
             for pID,p in enumerate(parses):
                 if len(p) == 0 or parents[pID].has_key(head):
                     parses[pID][head] = chart[head][0] # assign children to head
-                    for c in chart[head][0]:    
+                    for c in chart[head][0]:
                         parents[pID][c] = head
             for c in chart[head][0]:
                 (parses,parents) = self.generateTrees(c,chart,parses,parents)
@@ -286,7 +292,7 @@ class Main:
             cPosFlag = self.compareFixChildPos(rnode,rule,rt)
             if cPosFlag and cOrderFlag:
                 #print "\t\t\t************HEAD MATCHED**************"
-                return (True,rt)    
+                return (True,rt)
             else:
                 return (False,{})
         else:
@@ -296,7 +302,7 @@ class Main:
 
     def compareFixChildren(self,rnode,rule,rt):
         rC = rule.nodes[rnode].childOrder
-        if len(rC) == 0: 
+        if len(rC) == 0:
             #print "\t\t\t\tNo Order"
             return True
         else:
@@ -315,11 +321,10 @@ class Main:
                     #print "\t\t\t\tChild Pos in rule:",c[1],"Tree:",rt[c[0]][0]
                     if c[1] == ">=2":
                         if rt[c[0]][0] >= 2: #hardcoded >=2
-                            cPosFlag = True    
-                        else: 
+                            cPosFlag = True
+                        else:
                             cPosFlag = False
                             break
-                        
                     elif rt[c[0]][0] == int(c[1]):
                         cPosFlag = True
                     else:
@@ -345,7 +350,7 @@ class Main:
         catFlag = False
         if a == b: catFlag = True
         if b == "ANY": catFlag = True
-        if b == "VERB": 
+        if b == "VERB":
             if a.startswith("V"): catFlag = True
             else: catFlag = False
         if b == "MAIN" or b=="HELP":
@@ -358,12 +363,12 @@ class Main:
         if not bH == None:
             catFlag = False
             if aH == None:
-                if tree.origTree.has_key(tnode): 
+                if tree.origTree.has_key(tnode):
                     tempQ = deque(tree.origTree[tnode])
                     while len(tempQ) > 0:
                         c = tempQ.popleft()
                         if tree.nodes[c].head == bH:
-                            catFlag = True    
+                            catFlag = True
                             break
                         if tree.origTree.has_key(c):
                             for CID,C in enumerate(tree.origTree[c]):

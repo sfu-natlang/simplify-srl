@@ -1,17 +1,20 @@
-import re
-import sys
-from collections import deque
+#import re
+#import sys
+#from collections import deque
 import copy
 from parse import *
 
 class Transform:
+    """Holds the RHS of one rule and performs the transformation"""
     def __init__(self,rules):
+        """Stores a list of operations to be applied once a Rule is matched"""
         self.commands = [] #command name and args as tuple
-        self.newNode = {}
-        self.newlyAdded = {}
-        self.handleDuplicates = {}
-        self.transformedNodes = {}
-        self.emtpyNodes = {}
+        #self.newNode = {}          # Defined again as empty in transform
+        #self.newlyAdded = {}       # Defined again as empty in transform
+        #self.handleDuplicates = {} # Not used
+        self.transformedNodes = {}  # Never emptied out again
+        self.emtpyNodes = {}        # Never emptied out again
+        # Maps Vickrey's operations to Ravi's functions
         self.func = {
             'add_child_end': self.addC2End,
             'add_child_before': self.addCBefore,
@@ -32,12 +35,14 @@ class Transform:
         self.process(rules)
 
     def process(self,rules):
+        """Creates a list of operations to be applied"""
         for rule in rules:
             r,arg = rule.split('(')
             args = arg[:-1].split(',')
             self.commands.append((r,args))
 
     def transform(self,map,tr,currRuleId):
+        """Performs the transformation"""
         #print self.transformedNodes
         global t
         t = tr
@@ -50,13 +55,14 @@ class Transform:
             #print t.tree , "transformed"
 
     def addC2End(self,map,args,t):
+        """Vickrey's add_child_end"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = oldtcnode = self.getMapNode(map,int(args[1])) #node to replace
         if self.newNode.has_key(tpnode):
             tpnode = self.newNode[tpnode]
         if self.newNode.has_key(tcnode):
             tcnode = self.newNode[tcnode]
-        if t.tree.has_key(tpnode): 
+        if t.tree.has_key(tpnode):
             t.tree[tpnode].append(tcnode)
         else: #newly added node has children
             t.tree[tpnode] = [tcnode]
@@ -69,13 +75,14 @@ class Transform:
             t.parentOf[tcnode] = tpnode
 
     def addC2Begin(self,map,args,t):
+        """Vickrey's add_child_begin"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = oldtcnode = self.getMapNode(map,int(args[1])) #node to replace
         if self.newNode.has_key(tpnode):
             tpnode = self.newNode[tpnode]
         if self.newNode.has_key(tcnode):
             tcnode = self.newNode[tcnode]
-        if t.tree.has_key(tpnode): 
+        if t.tree.has_key(tpnode):
             t.tree[tpnode].insert(0,tcnode)
         else: #newly added node has children
             t.tree[tpnode] = [tcnode]
@@ -87,7 +94,8 @@ class Transform:
         else:
             t.parentOf[tcnode] = tpnode
 
-    def addCBefore(self,map,args,t): 
+    def addCBefore(self,map,args,t):
+        """Vickrey's add_child_before"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         tbnode = oldtbnode = self.getMapNode(map,int(args[1])) #node to replace
         tcnode = oldtcnode = self.getMapNode(map,int(args[2])) #node to replace
@@ -107,7 +115,8 @@ class Transform:
         else:
             t.parentOf[tcnode] = tpnode
 
-    def addCAfter(self,map,args,t): 
+    def addCAfter(self,map,args,t):
+        """Vickrey's add_child_after"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         tbnode = oldtbnode = self.getMapNode(map,int(args[1])) #node to replace
         tcnode = oldtcnode = self.getMapNode(map,int(args[2])) #node to replace
@@ -125,6 +134,7 @@ class Transform:
             t.parentOf[tcnode] = tpnode
 
     def removeC(self,map,args,t):
+        """Vickrey's remove_child"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = self.getMapNode(map,int(args[1])) #node to replace
         if self.newNode.has_key(tpnode):
@@ -135,6 +145,7 @@ class Transform:
         del t.parentOf[tcnode]
 
     def setCategory(self,map,args,t):
+        """Vickrey's set_category"""
         p = int(args[0])
         cat = args[1]
         if map.has_key(p):
@@ -145,7 +156,7 @@ class Transform:
                 t.nodes[newID].name = t.nodes[newID].label = cat
                 #print newID,t.nodes[newID].label
             else:
-                tpnode = self.newNode[tpnode] 
+                tpnode = self.newNode[tpnode]
                 t.nodes[tpnode].name = t.nodes[tpnode].label = cat
         else:
             if not self.emptyNodes.has_key((p,self.currRuleId)):
@@ -161,6 +172,7 @@ class Transform:
             t.nodes[newID].name = t.nodes[newID].label = cat
 
     def setHeadWord(self,map,args,t):
+        """Vickrey's set_head_word"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         if not self.newNode.has_key(tpnode):
             newID = len(t.nodes)
@@ -171,6 +183,7 @@ class Transform:
             t.nodes[tpnode].head = args[1]
 
     def concatenate(self,map,args,t):
+        """Vickrey's concatenate"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = oldtcnode = self.getMapNode(map,int(args[1])) #node to replace
         if self.newNode.has_key(tpnode):
@@ -182,6 +195,7 @@ class Transform:
             t.parentOf[c] = tpnode
 
     def setRoot(self,map,args,t):
+        """Vickrey's set_root"""
         tpnode = oldtpnode = self.getMapNode(map,int(args[0])) #parent
         if self.newNode.has_key(tpnode):
             tpnode = self.newNode[tpnode]
@@ -189,7 +203,7 @@ class Transform:
             par = t.parentOf[tpnode]
             if par == 0: return
             t.tree[par].remove(tpnode) #remove link to parent
-        else:    
+        else:
             t.tree[tpnode] = [] #children = null for newly created node
         if len(t.tree[0]) >0:
             if t.parentOf.has_key(t.tree[0][0]):
@@ -198,6 +212,7 @@ class Transform:
         t.parentOf[tpnode] = 0
 
     def getMapNode(self,map,node):
+        """Helper function"""
         if map.has_key(node):
             return map[node]
         else:
@@ -213,6 +228,7 @@ class Transform:
             return newID
 
     def replaceChild(self,map,args,t):
+        """Vickrey's replace_child"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         tanode = self.getMapNode(map,int(args[1])) #node to replace
         tbnode = self.getMapNode(map,int(args[2])) #node replacement
@@ -220,20 +236,21 @@ class Transform:
         if self.newNode.has_key(tpnode): tpnode =self.newNode[tpnode]
         if self.newNode.has_key(tanode): tanode =self.newNode[tanode]
         if self.newNode.has_key(tbnode): tbnode =self.newNode[tbnode]
-        
         bpar = None
         if t.parentOf.has_key(tbnode): #handling newly added node
             bpar = t.parentOf[tbnode] #unlink b
             t.tree[bpar].remove(tbnode)
-        pos = t.tree[tpnode].index(tanode) #unlink 
-        t.tree[tpnode][pos] = tbnode 
+        pos = t.tree[tpnode].index(tanode) #unlink
+        t.tree[tpnode][pos] = tbnode
         t.parentOf[tbnode] = tpnode
         del t.parentOf[tanode]
 
     def copyOriginal(self,map,args,t):
-        do_nothing = 1
+        """Vickrey's copy_original_from"""
+        pass
 
     def copyHead(self,map,args,t):
+        """Vickrey's copy_head_word_from"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = self.getMapNode(map,int(args[1])) #node to replace
         if self.newNode.has_key(tpnode):
@@ -245,6 +262,7 @@ class Transform:
             self.replace(t,tpnode,len(t.nodes))
 
     def makehelper(self,map,args,t):
+        """Vickrey's make_helper"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         if self.newNode.has_key(tpnode):
             tpnode = self.newNode[tpnode]
@@ -253,6 +271,7 @@ class Transform:
             self.replace(t,tpnode,len(t.nodes))
 
     def replaceCwC(self,map,args,t):
+        """Vickrey's replace_child_with_contents"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = self.getMapNode(map,int(args[1])) #node to replace
         trnode = self.getMapNode(map,int(args[2])) #node replacement
@@ -273,6 +292,7 @@ class Transform:
         del t.parentOf[tcnode]
 
     def transfer(self,map,args,t):
+        """Vickrey's transfer_children_after"""
         tpnode = self.getMapNode(map,int(args[0])) #parent
         tcnode = self.getMapNode(map,int(args[1])) #node to replace
         trnode = self.getMapNode(map,int(args[2])) #node replacement
@@ -286,11 +306,12 @@ class Transform:
         rPar = None
         if t.parentOf.has_key(trnode):
             rPar = t.parentOf[trnode]
-            t.tree[rPar].remove(trnode)            
+            t.tree[rPar].remove(trnode)
         t.tree[tpnode].insert(tcPos+1,trnode)
         t.parentOf[trnode] = tpnode
-        
+
     def replace(self,t,node,id,cat=""):
+        """Helper function"""
         if self.transformedNodes.has_key((node,self.currRuleId)):
             id = self.transformedNodes[(node,self.currRuleId)]
             self.newNode[node] = id

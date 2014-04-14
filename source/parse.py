@@ -1,9 +1,10 @@
 import re
-import sys
+#import sys
 import copy
 from collections import deque
 
 class TreeNode:
+    """AND node"""
     def __init__(self,f,id):
         self.id = id
         self.name = re.sub(r'[(|)]',r'',f)
@@ -30,6 +31,7 @@ class TreeNode:
         self.id = node.id
 
 class Tree:
+    """AND-OR tree"""
     def __init__(self,parse):
         self.chart = {}
         self.tree = {} #transformed in process
@@ -94,7 +96,7 @@ class Tree:
 
     def updateChart(self,rulesUsed):
         #self.newParse()
-        if self.hasCycle(): 
+        if self.hasCycle():
             print "Yes"
             return
         cQ = deque([0])
@@ -202,7 +204,7 @@ class Tree:
             same = {}
             self.treeCompare(p,self.tree,0,0,same)
             print same
-                
+
     def treeCompare(self,p,t,phead,thead,same):
         if not p.has_key(phead) or not t.has_key(thead):
             if phead == thead or self.propCompare(self.nodes[phead],self.nodes[thead]):
@@ -211,7 +213,7 @@ class Tree:
                 return True
             else:
                 return False
-        if len(p[phead]) == len(t[thead]):    
+        if len(p[phead]) == len(t[thead]):
             sameCount = 0
             for cID,pc in enumerate(p[phead]):
                 tc = t[thead][cID]
