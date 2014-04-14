@@ -1,0 +1,14 @@
+
+20050314 : Release of Charniak's full parses 
+
+20050311 : Named Entities released; this version seems to be stable 
+20050311 : slight changes in "make-trainset.sh" and "make-devset.sh" scripts 
+20050311 : update of "devel/synt.upc/devel.24.synt.upc.gz" : chunks were formatted in BIO, now they are in Start-End (as the rest of the data)
+
+20050310 : Release of the "col2" version of Collins' full parses; in this version non-terminals are those of the WSJ
+20050310 : Release of a beta version of Charniak's full parses; still, many sentences have no parse
+20050310 : Named Entities reported to be wrong for sections other than 15-18, 20 and 21
+
+20050304 : Official data for CoNLL-2005 Shared task released
+
+

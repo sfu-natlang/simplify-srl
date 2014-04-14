@@ -1,0 +1,442 @@
+========================================================================
+
+9th Conference on Computational Natural Language Learning (CoNLL-2005)
+
+
+Shared Task Distribution -- Official Release 
+
+Created March 04, 2005
+Revised March 14, 2005
+
+========================================================================
+
+ o o o    Xavier Carreras and Lluis Marquez
+ o o o
+ o o o    Technical University of Catalonia (UPC)
+
+  http://www.lsi.upc.edu/~srlconll
+  srlconll <at> lsi.upc.edu
+
+========================================================================
+
+
+WARNING
+
+The data of this distribution is to be completed with the Wall Street
+Journal sections 02-21 and 23 of the Penn Treebank II collection. See
+details below.  For participants not owning a valid license on the
+Penn Treebank II collection, LDC is providing an "evaluation license",
+valid during competition time, allowing to freely download and use the
+part completing the CoNLL-2005 shared task datasets.
+
+
+
+GENERAL
+
+This is the 20050314 release of the data and associated software for
+the CoNLL-2005 shared task. This release is intended to be stable, but
+it is subject to minor changes and updates if some errors are found
+(please inform organizers asap if you notice something wrong with the
+datasets). 
+
+
+The shared task of CoNLL-2005 concerns the recognition of semantic
+roles, for the English language. Given a sentence, the task consists
+of analyzing the propositions expressed by some target verbs of the
+sentence. In particular, for each target verb all the constituents in
+the sentence which fill a semantic role of the verb have to be
+recognized.
+
+Consult the shared task webpage for detailed instructions to
+participate, calendar, and updates of the task and data.
+
+
+
+GOAL
+
+The data is a collection of sentences, each of which contains a number
+of target verbs and other annotations.  The goal of the task is to
+develop a machine learning system to recognize participants of the
+propositions governed by the target verbs. For simplicity, we will
+refer as arguments to all kinds of participants in a proposition,
+including adjunctives, references and the verb realization. The
+output, thus, is a set of arguments for each target proposition.
+
+The annotations provided as input to support the recognition consist
+of syntactic information and named entities. Following earlier CoNLL
+Shared Tasks, the syntactic information consists of part-of-speech
+tags, base chunks and clauses. In addition, full syntactic parses are
+provided as well. These input annotations are predicted by
+state-of-the-art preprocessors.
+
+Training and development data are provided to build the learning
+system. These datasets contain predicted input annotations and the
+correct outputs. The training set will be used for training systems.
+The development set will be used to tune parameters of the learning
+systems.
+
+Evaluation will be performed on a separate test set, which will be
+provided with target verbs and predicted input annotations. A system
+will be evaluated with respect to precision, recall and the F1 measure
+of recognized arguments. For an argument to be correctly recognized,
+both the words spanning the argument and its type have to be
+correct. The srl-eval.pl program, distributed by the organization, is
+the official program to compute the scores. As in the CoNLL-2004
+edition, arguments annotating the verb predicate (i.e., V args) will
+not be considered.
+
+In particular, datasets are sections of the Wall Street Journal (WSJ)
+part of the Penn TreeBank II [TB]. We follow the standard WSJ
+partition used in syntactic parsing, which is:
+
+ */ Training set :     WSJ sections 02-21
+ */ Development set :  WSJ section  24
+ */ Test set :         WSJ section  23 + "fresh sentences"
+
+
+The annotations of predicate-argument structures have been derived
+from PropBank [PB], while the preprocessors that predict the input
+annotations have been developed within the standard partition of the
+Penn TreeBank. 
+
+This edition, the test set will include a collection of "fresh
+sentences" which are not part of WSJ. The aim is to evaluate the
+robustness of systems on data outside the training corpus.
+
+
+The Shared Task evaluation is separated into two challenges:
+
+*/ Closed Challenge: Systems have to be built strictly with
+    information contained in the training sections of TB and PB, and
+    tuned with the development section. In most of the cases, systems
+    in this evaluation will make use only of the provided training
+    dataset. However, it is also possible to use any information in the
+    training sections of TB and PB, and consequently to use any
+    preprocessor strictly developed within the standard WSJ partition
+    (this includes the chunkers and clausers of previous Shared Tasks,
+    as well as most of the syntactic WSJ-parsers). In addition, the
+    PropBank frames can also be used (see below in Official
+    Resources). The aim of this challenge is to produce a ranking of
+    systems with respect to their F1 measure, and to compare their
+    performance in a fair environment.
+
+*/ Open Challenge: Systems can be developed making use of any kind of
+    external tools and resources. The only condition is that such
+    tools or resources have not been developed with the annotations of
+    the test set, both for the input and output annotations of the
+    data. In this challenge, we are interested in learning methods
+    which make use of tools or resources that might improve the
+    performance. For example, we encourage the use of rich semantic
+    information, by using WordNet, VerbNet or a WSD system.  The
+    comparison of different systems in this setting may not be fair,
+    and thus ranking of systems is not necessarily important.
+
+
+
+PREPROCESSING SYSTEMS
+
+The input annotations we provide have been computed with the following
+state-of-the-art systems:
+
+*/ UPC processors : 
+   
+   - Part-of-Speech (PoS) tagger of (Gimenez and Marquez, 2003) 
+   - Chunker and clauser of (Carreras and Marquez 2003), both
+     developed within the CoNLL-2000 and CoNLL-2001 Shared Task
+     settings, respectively. The clause boundaries predicted by this
+     partial parser respect the boundaries of the chunks. Hence, this
+     processor outputs a well-formed structure of chunks and clauses. 
+
+*/ Collins parser: 
+
+   The full parser of (Collins 99), with "model 2". Predicts WSJ full
+   parses, with information of the lexical head for each syntactic
+   constituent. The PoS tags (required by the parser) have been
+   computed with (Gimenez and Marquez 2003).
+   
+*/ Charniak parser: 
+
+   The full parser of (Charniak 00). Predicts PoS tags and WSJ full
+   parses.
+
+*/ Named Entity Extractor:  
+
+   Of (Chieu and Ng 2003), developed within the 2003 Shared Task on
+   Named Entity Extraction for English. 
+
+   NOTE: this processor has not been developed with WSJ training data,
+   and is the only exception allowed for the closed challenge.
+
+
+
+FORMAT
+
+Here is an example of a fully-annotated sentence: 
+
+
+   WORDS---->  NE--->  POS   PARTIAL_SYNT   FULL_SYNT------>   VS   TARGETS  PROPS------->
+								          
+   The             *   DT    (NP*   (S*        (S(NP*          -    -        (A0*    (A0*       
+   $               *   $        *     *     (ADJP(QP*          -    -           *       *       
+   1.4             *   CD       *     *             *          -    -           *       *       
+   billion         *   CD       *     *             *))        -    -           *       *       
+   robot           *   NN       *     *             *          -    -           *       *       
+   spacecraft      *   NN       *)    *             *)         -    -           *)      *)    
+   faces           *   VBZ   (VP*)    *          (VP*          01   face      (V*)      *       
+   a               *   DT    (NP*     *          (NP*          -    -        (A1*       *       
+   six-year        *   JJ       *     *             *          -    -           *       *       
+   journey         *   NN       *)    *             *          -    -           *       *       
+   to              *   TO    (VP*   (S*        (S(VP*          -    -           *       *       
+   explore         *   VB       *)    *          (VP*          01   explore     *     (V*)     
+   Jupiter     (ORG*)  NNP   (NP*)    *       (NP(NP*)         -    -           *    (A1*       
+   and             *   CC       *     *             *          -    -           *       *       
+   its             *   PRP$  (NP*     *          (NP*          -    -           *       *       
+   16              *   CD       *     *             *          -    -           *       *       
+   known           *   JJ       *     *             *          -    -           *       *       
+   moons           *   NNS      *)    *)            *)))))))   -    -           *)      *)    
+   .               *   .        *     *)            *)         -    -           *       *    
+
+
+There is one line for each token, and a blank line after the last
+token. The columns, separated by spaces, represent different
+annotations of the sentence with a tagging along words. For structured
+annotations (named entities, chunks, clauses, parse trees, arguments),
+we use the Start-End format.
+
+The Start-End format represents phrases (chunks, arguments, and
+syntactic constituents) that constitute a well-formed bracketing in a
+sentence (that is, phrases do not overlap, though they admit
+embedding). Each tag is of the form STARTS*ENDS, and represents
+phrases that start and end at the corresponding word. A phrase of type
+$k places a "($k" parenthesis at the STARTS part of the first word,
+and a ")" parenthesis at the END part of the last word.  Scripts will
+be provided to transform a column in Start-End format into other
+standard formats (IOB1, IOB2, WSJ trees). The Start-End format used
+last year (that considered the phrase type in the start and end parts)
+is compatible with the current software and scripts.
+
+
+The different annotations in a sentence are grouped in the following
+blocks:
+
+- WORDS        : The words of the sentence.
+- NE           : Named entities.
+- POS          : PoS tags.
+- PARTIAL SYNT : Partial syntax, namely chunks (1st column) and
+                 clauses (2nd column)
+- FULL SYNT    : Full syntactic tree. Note that this column
+                 represents the following WSJ tree:
+
+    (S 
+       (NP (DT The) 
+         (ADJP 
+           (QP ($ $) (CD 1.4) (CD billion) ))
+         (NN robot) (NN spacecraft) )
+       (VP (VBZ faces) 
+         (NP (DT a) (JJ six-year) (NN journey) 
+           (S 
+             (VP (TO to) 
+               (VP (VB explore) 
+                 (NP 
+                   (NP (NNP Jupiter) )
+                   (CC and) 
+                   (NP (PRP$ its) (CD 16) (JJ known) (NNS moons) )))))))
+       (. .) )
+
+
+- VS           : VerbNet sense of target verbs. These are hand-crafted
+                 annotations that will be available only in training
+		 and development sets (not for the test set).
+- TARGETS      : The target verbs of the sentence, in infinitive form. 
+- PROPS        : For each target verb, a column reprenting the arguments  
+                 of the target verb.
+
+
+
+NOTES ON THE STRUCTURE OF ARGUMENTS IN A PROPOSITION
+
+Although we represent the arguments of each proposition in a format
+which allows embedding, no embedding is observed in arguments of a
+proposition governed by a verb.
+
+Some arguments of a proposition can appear in a sentence split into
+many discontiguous phrases. In this case, each phrase of an argument
+of type $k is represented as a phrase in Start-End format: the first
+phrase appears with label $k, and the remaining phrases appear with
+label "C-$k" (Continuation). For a system to correctly recognize a
+discontinuous argument, all and only its phrases have to be correctly
+recognized.
+
+
+
+FILES 
+
+The current data distribution corresponds to the Wall Street sections
+02-21 as training set, and section 24 as development set.
+
+Training and development sets are split into two main "train" and
+"devel" folders. Each of these, contains a subfolder for each layer of
+annotation (the information in columns in the preceding example):
+
+    * props/      : Target verbs and correct propositional arguments.
+
+    * synt.upc/   : PoS tags and partial parses (chunks+clauses), 
+	            predicted with UPC processors. 
+
+    * synt.col2/  : PoS tags, and full parses predicted with Collins'.
+                    Non-terminals of syntactic trees are those of the
+	            Penn Treebank. 
+                    A few number of sentences have empty tree. 
+
+    * synt.col2h/ : PoS tags, and full parses predicted with Collins'.
+                    Non-terminals of syntactic trees are those used
+	            by the parser (NTs are enriched and include lexical
+                    head).
+                    A few number of sentences have empty tree. 
+
+    * synt.cha/   : PoS tags and full parsing predicted with Charniak's.
+
+    * ne/         : Named Entities, predicted with (Chieu and Ng, 2003).
+
+    * senses/     : VerbNet senses of target verbs, hand-crafted.
+	            Note that this annotations will not be provided in
+                    the test set.
+
+
+The WSJ splits into sections have been maintained. Thus, each of the
+subfolders in the 'train' folder contains 20 files, one for each
+section (from 02 to 21).  For instance, the 'train/props/' folder
+contains 'train.02.props.gz','train.03.props.gz',...,'train.21.props.gz'. 
+Consistently, subfolders in the "devel" folder contains a unique 
+file, e.g., 'devel.24.props.gz'.
+
+Standard UNIX commands can be used to merge all the necessary files
+into a single training/development complete file with all the
+information. As an example, we distribute the 'make-trainset.sh' shell
+script, which constructs a complete training set (20 sections)
+containing words, syntax (Collins' full parses), named entities, verb
+senses, and propositions. The 'make-devset.sh' performs the same work
+on the development set.
+
+
+Notes: 
+======
+
+1) Words and gold parse trees aligning with the previous annotations
+are to be extracted from the "Penn Treebank II collection" distributed
+through LDC or from the "CoNLL-2005 shared task collection" freely
+distributed through LDC under an evaluation license. Use
+'wsj-removetraces.pl' and 'wsj-to-se.pl' utilities (from the srlconll
+software package) to convert Penn Treebank annotation style into the
+column-based format of the shared task.
+
+For example, assuming assuming the Penn Treebank is under directory
+WSJ, the following command extracts the words of Section 02:
+
+ $ zcat WSJ/02/* | wsj-removetraces.pl | wsj-to-se.pl -w 1 | awk '{print $1}' | gzip > train.02.words.gz
+
+Similarly, the following command extracts the gold trees of Section
+02:
+
+ $ zcat WSJ/02/* | wsj-removetraces.pl | wsj-to-se.pl -w 0 -p 1 | gzip > train.02.synt.wsj.gz
+
+ 
+
+2) We have maintained the original WSJ splits into sections because
+the complete file is very large compared to last shared task
+editions. Probably, some learning architectures will not be able to
+scale to the current sizes. In case participants want to use a smaller
+part of the training set, we suggest to use the training sections from
+last shared task, 15-18 (for the sake of comparison), or, at least, to
+make explicit in their papers which sampling procedure has been used
+to select the training material.
+
+
+3) The files forming the current distribution can be downloaded from
+the Shared Task webpage as a single tarfile (named
+'conll05st-release.tar.gz'), or separatedly, with one tarfile per
+layer: 
+   * conll05st-release-props.tar.gz
+   * conll05st-release-synt.upc.tar.gz
+   * conll05st-release-synt.col2.tar.gz
+   * conll05st-release-synt.col2h.tar.gz
+   * conll05st-release-synt.cha.tar.gz
+   * conll05st-release-ne.tar.gz
+   * conll05st-release-senses.tar.gz
+
+When decompressed, all these ".tar" files produce disjoint directories
+(each containing the corresponding files per sections), according to
+the structure described above.
+
+
+
+SOFTWARE
+
+* The srl-eval.pl program is available at the shared task webpage 
+  (Data&Software):
+
+  The srl-eval.pl program is the official script for evaluation of
+  CoNLL-2004 Shared Task systems. It expects two parameters: The first
+  is the name of the file containing correct propositions; the second is
+  the name of the file containing predicted propositions. Both files are
+  expected to follow the format of "props" files (first column: target
+  verbs; remaining columns: args of each target verb). It is required
+  that both files contain the same sentences and the same target
+  verbs. The program outputs performance measures based on precision,
+  recall and F1. The overall F1 measure will be the measure used to
+  compare the performance of systems.
+
+* The srlconll package contains a suite of scripts to process the data
+  of the CoNLL-2004 and CoNLL-2005 Shared Tasks.  The package includes
+  the srl-eval.pl script, baseline systems, and other scripts to change
+  formats and perform other utilities with data files. Find it at the
+  shared task webpage (Data&Software). 
+  The current version of the package is 1.0. 
+
+If you find bugs, please get in touch asap with the organizers. 
+
+
+OFFICIAL RESOURCES
+
+The PropBank Frames are distributed at the Shared Task webpage,
+together with hand-crafted annotations of the senses of the target
+verbs. 
+
+
+
+REFERENCES
+
+(Carreras and Marquez 2003)
+       Xavier Carreras and Lluis Marquez.
+       "Phrase Recognition by Filtering and Ranking with Perceptrons" 
+       In Proceedings of RANLP-2003, Borovets, Bulgaria, 2003.
+
+(Charniak 2000)
+       Eugene Charniak
+       "A Maximum-Entropy Inspired Parser"
+       In Proceedings of NAACL-2000, 2000. 
+
+(Chieu and Ng 2003) 
+       Hai Leong Chieu and Hwee Tou Ng.
+       "Named Entity Recognition with a Maximum Entropy Approach"
+       In Proceedings of CoNLL-2003, Edmonton, Canada, 2003. 
+
+(Collins 1999)
+       Michael Collins
+       "Head-driven Statistical Models for Natural Language Parsing"
+       PhD Thesis, 1999, University of Pennsylvania. 
+
+
+(Gimenez and Marquez 2003)
+       Jesus Gimenez and Lluis Marquez.
+       "Fast and Accurate Part-of-Speech Tagging: The SVM Approach Revisited"
+       In Proceedings of RANLP-2003, Borovets, Bulgaria, 2003.
+
+
+[PB] PropBank Project:  http://www.cis.upenn.edu/~ace
+
+[TB] Penn TreeBank II Project :  http://www.cis.upenn.edu/~treebank
+
+
+
+---
